@@ -1,0 +1,8 @@
+[env]
+DB_HOST="localhost"
+DB_PASSWORD="gameservice123"
+DB_USERNAME="gameservice"
+DB_DATABASE="gameservice"
+DB_PORT="30339"
+RUST_LOG="debug"
+ROCKET_CLI_COLORS="false"
