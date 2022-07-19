@@ -246,8 +246,6 @@ async fn get_characters(mut db: Connection<PostgresDB>,
     }
 }
 
-
-
 struct DBConnParams {
     host: String,
     db_name: String,
@@ -364,6 +362,7 @@ async fn main() -> Result<(), AppError> {
             .await;
         
         Ok(())
+            
     } else {
         let error = pg_result.1.unwrap();
         error!("Received pg failure {:?}, not starting web app", error);
