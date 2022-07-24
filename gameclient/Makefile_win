@@ -7,13 +7,20 @@ SOURCE_FILES := src/cpp/win32/main.cpp
 
 BINARY_NAME := client
 
-INCLUDE_DIR := include
+INCLUDE_PATHS := include
+
+LIBRARY_PATHS := -Llib
+
+# COMPILER_FLAGS := -w -Wl,-subsystem,windows
+COMPILER_FLAGS := -w 
+
+LINKER_FLAGS := -lmingw32 -lSDL2main -lSDL2 -lws2_32
 
 init:
 	mkdir -p ./target/$(BUILD_TYPE)
 
 build:
-	$(CC) -I$(INCLUDE_DIR) $(SOURCE_FILES) -o target/$(BUILD_TYPE)/$(BINARY_NAME) -lws2_32
+	$(CC) -I$(INCLUDE_PATHS) $(LIBRARY_PATHS) $(COMPILER_FLAGS) $(SOURCE_FILES) -o target/$(BUILD_TYPE)/$(BINARY_NAME) $(LINKER_FLAGS)
 
 run:
 	./target/$(BUILD_TYPE)/$(BINARY_NAME)

@@ -58,21 +58,23 @@ DebugLogger lo = DebugLogger();
 
 #include "http_handler.h"
 
-/* enum MESSAGE_TYPES {
-  LOGIN = "login",
-  GET_CHARACTERS = "get_chars",                       
-  }; */
-
 struct ServerResponse {
   int status;
   std::string body;
 };
 
-void response_to_json(json& j, const ServerResponse& response) {
-  j["status"] = response.status;
-  j["body"] = response.body;
-}
+#include "json_helpers.cpp"
 
+/* enum MESSAGE_TYPES {
+  LOGIN = "login",
+  GET_CHARACTERS = "get_chars",                       
+  }; */
+
+#include <string_view>
+
+static bool endsWith(std::string_view str, std::string_view suffix) {
+  return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
+}
 ServerResponse process_message(std::map<std::string, std::string> SERVER_URLS,
                                HttpHandler* httpHandler,
                                json message) {
@@ -87,13 +89,26 @@ ServerResponse process_message(std::map<std::string, std::string> SERVER_URLS,
     auto loginUrl = SERVER_URLS["loginUrl"];
     
     auto loginResponse = httpHandler->post_request(loginUrl, message.dump());
+
+    const char* tt = loginResponse.body.c_str();
+
+    auto qt = parse_json(tt);
+
+    if (std::get<bool>(qt)) {
+
+      auto js = std::get<json>(qt);
+      
+      lo.info(format("user_token %s", js["user_token"]));
+      
+      response.status = 200;
+      response.body = js.dump();
+      
+    } else {
+      lo.error(format("json %s", loginResponse.body));
+      response.status = 0;
+      response.body = "json parse error";
+    }
     
-    auto qt = json::parse(loginResponse.body);
-    
-    lo.info(format("user_token %s", qt["user_token"]));
-    
-    response.status = 200;
-    response.body = qt.dump();
     
   } else {
     
@@ -107,6 +122,8 @@ ServerResponse process_message(std::map<std::string, std::string> SERVER_URLS,
 
 
 using namespace std::chrono_literals;
+
+ 
 
 int main(int argc, char** argv) {
   
@@ -123,7 +140,7 @@ int main(int argc, char** argv) {
 
   bool running = true;
 
-  if (gameServiceURL.empty()) {
+  if (gameServiceURL.empty() || !endsWith(gameServiceURL, "/")) {
     lo.error("Could not get GAME_SERVICE_URL from the environment, not starting");
     return 1;
   }
@@ -140,7 +157,7 @@ int main(int argc, char** argv) {
   
   int sockfd;
   char buffer[MAXLINE];
-  char *hello = "Hello from server";
+  //  char *hello = "Hello from server";
 
   struct sockaddr_in servaddr, cliaddr;
 
@@ -180,30 +197,59 @@ int main(int argc, char** argv) {
     buffer[n] = '\0';
     printf("client : %s\n", buffer);
 
-    json incomingMessage = json::parse(buffer);
+    std::tuple<bool, json> incomingMessageOption = parse_json(buffer);
+
+    if (std::get<bool>(incomingMessageOption)) {
+
+      json incomingMessage = std::get<json>(incomingMessageOption);
+      
+      lo.info(format("inc msg type: %s", incomingMessage["type"]));
+      
+      ServerResponse response = process_message(SERVER_URLS,
+                                                &httpHandler,
+                                                incomingMessage);
+      
+      json responseAsJson;
+      response_to_json(responseAsJson, response);
+      
+      lo.info(responseAsJson.dump());
+      
+      std::string as_json = responseAsJson.dump();
+      const char* rr = as_json.c_str();
+      
+      sendto(sockfd,
+             (const char*)rr,
+             strlen(rr),
+             MSG_CONFIRM,
+             (const struct sockaddr *) &cliaddr,
+             len);
+
+      lo.info(format("responded with %s", as_json));
+      
+    } else {
+
+      ServerResponse response = ServerResponse{0, "json parse error"};
+      json responseAsJson;
+      response_to_json(responseAsJson, response);
+
+      lo.info(responseAsJson.dump());
+
+      std::string as_json = responseAsJson.dump();
+      const char* rr = as_json.c_str();
+      
+      sendto(sockfd,
+             (const char*)rr,
+             strlen(rr),
+             MSG_CONFIRM,
+             (const struct sockaddr *) &cliaddr,
+             len);
+      
+      lo.info(format("responded with %s", as_json));      
+      
+    }
     
-    lo.info(format("inc msg type: %s", incomingMessage["type"]));
-
-    ServerResponse response = process_message(SERVER_URLS,
-                                              &httpHandler,
-                                              incomingMessage);
-
-    json responseAsJson;
-    response_to_json(responseAsJson, response);
-
-    lo.info(responseAsJson.dump());
-
-    std::string as_json = responseAsJson.dump();
-    const char* rr = as_json.c_str();
     
-    sendto(sockfd,
-           (const char*)rr,
-           strlen(rr),
-           MSG_CONFIRM,
-           (const struct sockaddr *) &cliaddr,
-           len);
-    
-    lo.info(format("responded with %s", as_json));
+
 
     std::this_thread::sleep_for(100ms);
 

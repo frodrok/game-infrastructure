@@ -19,6 +19,9 @@ init:
 build:
 	g++ -L$(LIBS_DIR) -I$(INCLUDE_DIR) $(GCC_FLAGS) $(GCC_INPUT) -o ./$(OUTPUT_DIR)/$(BUILD_TYPE)/$(BINARY_NAME) $(LINK_LIBS)
 
+docker: build
+	docker build -f docker/Dockerfile -t server .
+
 run:
 	./$(OUTPUT_DIR)/$(BUILD_TYPE)/$(BINARY_NAME)
 
@@ -27,3 +30,4 @@ clean:
 
 all: init build run
 
+.PHONY: docker
