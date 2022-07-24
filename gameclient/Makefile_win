@@ -3,7 +3,7 @@ CC := g++
 
 BUILD_TYPE := debug
 
-SOURCE_FILES := src/cpp/unix/main.cpp
+SOURCE_FILES := src/cpp/win32/main.cpp
 
 BINARY_NAME := client
 
@@ -13,7 +13,7 @@ init:
 	mkdir -p ./target/$(BUILD_TYPE)
 
 build:
-	$(CC) -I$(INCLUDE_DIR) $(SOURCE_FILES) -o target/$(BUILD_TYPE)/$(BINARY_NAME) 
+	$(CC) -I$(INCLUDE_DIR) $(SOURCE_FILES) -o target/$(BUILD_TYPE)/$(BINARY_NAME) -lws2_32
 
 run:
 	./target/$(BUILD_TYPE)/$(BINARY_NAME)
