@@ -1,0 +1,14 @@
+### WTF
+
+start postgres:
+	sudo k3s server for k3s with postgres deployed
+	if postgres not deployed, kustomize and apply from ./data-layer/deployment
+
+start rest-api:
+	cd data-layer/game-service && cargo run
+
+start gameserver: 
+	bash gameserver/docker/docker-run.sh
+
+start gameclient:
+	cmder.exe && make -f Makefile_win all

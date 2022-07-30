@@ -91,6 +91,10 @@ async fn login(mut db: Connection<PostgresDB>,
 
                 let success = db_password == password_hashed;
 
+                if !success {
+                    return status::Custom(Status::Forbidden, String::from("forbidden"));
+                }
+
                 info!("username {:?}, password {:?} password_hashed {:?} success {:?}", db_username, db_password, password_hashed, success);
                 
                 let user_token = generate_user_token(&login_info.username, &login_info.password);
