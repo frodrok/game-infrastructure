@@ -7,6 +7,7 @@ struct ClientState {
   std::string username;
   std::string accessToken;
   std::string selectedTextbox;
+  std::string currentView;
 };
 
 // where have i seen this before?

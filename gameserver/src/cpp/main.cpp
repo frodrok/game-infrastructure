@@ -110,10 +110,28 @@ ServerResponse process_message(std::map<std::string, std::string> SERVER_URLS,
     }
     
     
+  } else if (message["type"] == "logout") {
+    lo.info("got logout request");
+    lo.info(message["username"]);
+
+    auto logoutUrl = SERVER_URLS["logoutUrl"];
+
+    auto logoutResponse = httpHandler->post_request(logoutUrl, message.dump());
+
+    const char* responseBody = logoutResponse.body.c_str();
+
+    auto jsonParseResult = parse_json(responseBody);
+
+    if (std::get<bool>(jsonParseResult)) {
+      auto js = std::get<json>(jsonParseResult);
+
+      response.status = 200;
+      response.body = js.dump();
+    }
   } else {
     
     response.status = 0;
-    response.body = "failure";
+    response.body = "no handler for message type";
     
   }
 
@@ -151,7 +169,7 @@ int main(int argc, char** argv) {
 
   const std::map<std::string, std::string> SERVER_URLS = {
     { "loginUrl", std::string(gameServiceURL) + "account/login" },
-    { "x", std::string(gameServiceURL) + "account/login" },
+    { "logoutUrl", std::string(gameServiceURL) + "account/logout" },
     { "y", std::string(gameServiceURL) + "account/login" },
   };
   

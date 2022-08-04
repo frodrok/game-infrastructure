@@ -19,6 +19,10 @@ using json = nlohmann::json;
 #define PORT 8001
 #define CHARACTER_WIDTH 25;
 
+#include "server_communication.cpp"
+
+
+
 
 SDL_Texture* textToTexture(SDL_Renderer* renderer,
                            TTF_Font* font,
@@ -34,98 +38,6 @@ SDL_Texture* textToTexture(SDL_Renderer* renderer,
   
 }
 
-int sendUdpPacket(int s,
-                  sockaddr* si_other,
-                  const char* message,
-                  int slen) {
-
-  if (sendto(s,
-             message,
-             strlen(message),
-             0,
-             si_other,
-             slen) == SOCKET_ERROR) {
-    
-    printf("sendto failed with error code: %d", WSAGetLastError());
-    return 1;
-    
-  } else {
-    return 0;
-  }             
-}
-
-std::string receiveUdpPacket(int s,
-                       sockaddr* si_other,
-                       int* slen) {
-
-  char buf[BUFLEN];
-  memset(buf, '\0', BUFLEN);
-
-  if (recvfrom(s, buf, BUFLEN, 0, si_other, slen) == SOCKET_ERROR) {
-    printf("recvfrom() failed %d", WSAGetLastError());
-   
-  }
-
-  std::cout << "BUF: " << buf << std::endl;
-
-  return std::string(buf);
-}
-
-ServerResponse sendLoginRequest(int s,
-                                std::string username,
-                                std::string password) {
-
-  std::cout << "slr uname: " << username << ", pword: " << password << std::endl;
-
-  struct sockaddr_in si_other;
-  int slen = sizeof(si_other);
-  memset( (char*) &si_other, 0, sizeof(si_other));
-
-  si_other.sin_family = AF_INET;
-  si_other.sin_port = htons(PORT);
-  si_other.sin_addr.S_un.S_addr = inet_addr(SERVER);
-  
-  json loginMessageJson;
-  loginMessageJson["type"] = "login";
-  loginMessageJson["username"] = username;
-  loginMessageJson["password"] = password;
-
-  auto messageStr = loginMessageJson.dump();
-
-  const char* message = messageStr.c_str();
-
-  int result = sendUdpPacket(s,
-                             (struct sockaddr *) &si_other,
-                             message,
-                             slen);
-
-  if (result > 0) {
-    ServerResponse response { 0, "error" };
-    return response;
-  }
-
-  std::string packet = receiveUdpPacket(s,
-                                  (struct sockaddr *) &si_other,
-                                  &slen);
-
-  std::cout << "received packet: " << packet << std::endl;
-
-  json receivedParsed = json::parse(packet);
-
-  std::cout << "received status: " << receivedParsed["status"] << std::endl;
-
-  int status = receivedParsed["status"];
-  std::string body = receivedParsed["body"];
-
-  ServerResponse response { status,
-                            body };
-  
-  return response;
-}
-
-
-
-
 int main(int argc, char** argv) {
 
   const int SCREEN_WIDTH = 800;
@@ -137,7 +49,8 @@ int main(int argc, char** argv) {
 
   ClientState state = ClientState { "",
                                     "",
-                                    "username"
+                                    "username",
+                                    "login"
   };
 
   char buf[BUFLEN];
@@ -220,20 +133,35 @@ int main(int argc, char** argv) {
 
       SDL_Color white = {255, 255, 255};
 
-      SDL_Texture* loginTextTexture = textToTexture(renderer,
-                                               sans,
-                                               "login prompt",
-                                               white);
-
-      SDL_Rect textRect;
-      textRect.x = 0;
-      textRect.y = 0;
-      textRect.w = 200;
-      textRect.h = 100;
-
       std::string loginUsernameText = std::string("username");
       std::string loginPasswordText = std::string("password");
+      std::string loginStatusText = "";
 
+      SDL_Texture* loginTextTexture = textToTexture(renderer,
+                                                    sans,
+                                                    "login prompt",
+                                                    white);
+      
+      SDL_Texture* loginStatusTexture = textToTexture(renderer,
+                                                      sans,
+                                                      loginStatusText.c_str(),
+                                                      white);
+      SDL_Rect loginStatusRect { 500, 500, 150, 100 };
+      
+      SDL_Texture* loginButtonTexture = textToTexture(renderer,
+                                                      sans,
+                                                      "login",
+                                                      white);
+      
+      SDL_Rect loginButtonRect { 500, 300, 150, 100 };
+
+      SDL_Texture* logoutTextTexture = textToTexture(renderer,
+                                                       sans,
+                                                       "logout",
+                                                       white);
+
+      SDL_Rect logoutButtonRect { 500, 300, 150, 100};
+      
       SDL_Texture* loginUsernameTexture = textToTexture(renderer,
                                                         sans,
                                                         loginUsernameText.c_str(),
@@ -253,20 +181,12 @@ int main(int argc, char** argv) {
       loginPasswordRect.y = 150;
       loginPasswordRect.w = 200;
       loginPasswordRect.h = 100;
-
-      SDL_Texture* loginButtonTexture = textToTexture(renderer,
-                                                      sans,
-                                                      "login",
-                                                      white);
-      SDL_Rect loginButtonRect { 500, 300, 150, 100 };
-
-      std::string loginStatusText = "";
-      SDL_Texture* loginStatusTexture = textToTexture(renderer,
-                                                      sans,
-                                                      loginStatusText.c_str(),
-                                                      white);
-      SDL_Rect loginStatusRect { 500, 500, 150, 100 };
       
+      SDL_Rect textRect;
+      textRect.x = 0;
+      textRect.y = 0;
+      textRect.w = 200;
+      textRect.h = 100;
       
       screenSurface = SDL_GetWindowSurface(window);
       
@@ -275,7 +195,8 @@ int main(int argc, char** argv) {
       bool running = true;      
       
       while (running) {
-        
+
+        /* START EVENT HANDLING */
         if (SDL_PollEvent(&event)) {
           switch (event.type) {
           case SDL_QUIT: 
@@ -367,6 +288,8 @@ int main(int argc, char** argv) {
 
             int mousePosX, mousePosY = 0;
 
+            std::cout << state.currentView << std::endl;
+
             SDL_GetMouseState(&mousePosX, &mousePosY);
 
             auto clickedPoint = Point { mousePosX, mousePosY };
@@ -376,21 +299,36 @@ int main(int argc, char** argv) {
             bool usernameTextboxClicked = checkForCollision(clickedPoint, &loginUsernameRect);
             bool passwordTextboxClicked = checkForCollision(clickedPoint, &loginPasswordRect);
 
-            if (usernameTextboxClicked) {
+            bool logoutTextboxClicked = checkForCollision(clickedPoint, &logoutButtonRect);
+
+            if (logoutTextboxClicked && state.currentView == "character_screen") {
+              
+              std::cout << "logout clicked" << std::endl;
+
+              ServerResponse serverResponse = sendLogoutRequest(s, state.username);
+
+              switch (serverResponse.status) {
+              case 200:
+                
+                state.currentView = "login";
+                
+                loginStatusText = "Logout success";
+                break;
+              default:
+                break;
+              }
+
+
+            } else if (usernameTextboxClicked && state.currentView == "login") {
               state.selectedTextbox = "username";
             } else if (passwordTextboxClicked) {
               state.selectedTextbox = "password";
-            }
-
-            // TODO: Check for mouse click collision with the login button
-            std::cout << "mouse click: " << event.button.button << std::endl;
-
-            if (loginButtonCollision) {
+            } else if (loginButtonCollision && state.currentView == "login") {
 
               ServerResponse serverResponse = sendLoginRequest(s,
                                                                loginUsernameText,
                                                                loginPasswordText);
-
+              
               std::cout << "after login request" << std::endl;
 
               std::string accessToken = "";
@@ -414,6 +352,8 @@ int main(int argc, char** argv) {
                   accessToken = responseBodyParsed["user_token"];
                   username = responseBodyParsed["username"];
                 }
+
+                state.currentView = "character_screen";
                 
                 break;
               default:
@@ -434,18 +374,46 @@ int main(int argc, char** argv) {
               break;
               
             }
+
+            
+
+            // TODO: Check for mouse click collision with the login button
+            std::cout << "mouse click: " << event.button.button << std::endl;
+
             
           }
           
-        }        
+        } /* END EVENT HANDLING */
+        
 
+        
         SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, loginTextTexture, NULL, &textRect);
-        SDL_RenderCopy(renderer, loginStatusTexture, NULL, &loginStatusRect);
-        SDL_RenderCopy(renderer, loginUsernameTexture, NULL, &loginUsernameRect);
-        SDL_RenderCopy(renderer, loginPasswordTexture, NULL, &loginPasswordRect);
-        SDL_RenderCopy(renderer, loginButtonTexture, NULL, &loginButtonRect);
+                
+        switch( hash(state.currentView.c_str())) {
+          
+        case hash("login"): 
+          
+          SDL_RenderCopy(renderer, loginTextTexture, NULL, &textRect);
+          SDL_RenderCopy(renderer, loginStatusTexture, NULL, &loginStatusRect);
+          SDL_RenderCopy(renderer, loginUsernameTexture, NULL, &loginUsernameRect);
+          SDL_RenderCopy(renderer, loginPasswordTexture, NULL, &loginPasswordRect);
+          SDL_RenderCopy(renderer, loginButtonTexture, NULL, &loginButtonRect);
+          
+          break;
+        
+          
+        case hash("character_screen"): 
+          SDL_RenderCopy(renderer, logoutTextTexture, NULL, &logoutButtonRect);
+          break;
+        
+        default:
+          break;
+        }
+
         SDL_RenderPresent(renderer);
+
+
+        
 
       }
 

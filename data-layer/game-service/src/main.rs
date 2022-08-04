@@ -38,6 +38,16 @@ struct LoginRequest {
     password: String
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+struct LogoutRequest {
+    username: String
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+struct LogoutResponse {
+    username: String
+}
+
 #[derive(Serialize, Debug)]
 struct LoginResponse {
     username: String,
@@ -166,6 +176,45 @@ async fn register(mut db: Connection<PostgresDB>,
 
 
 //    status::Custom(Status::NotFound, String::from("sorry"))
+}
+
+#[post("/account/logout", format="json", data="<logout_info>")]
+async fn logout(mut db: Connection<PostgresDB>,
+                logout_info: Json<LogoutRequest>) -> status::Custom<String> {
+    info!("logout called {:?}", logout_info);
+
+    let user_result = db.query(db::queries::GET_USER, &[&logout_info.username]).await;
+
+    match user_result {
+        Ok(u) => {
+            info!("logout found user {:?}", u);
+
+            let remove_token_result = db.query(db::queries::SET_USER_TOKEN, &[&"", &logout_info.username]).await;
+
+            match remove_token_result {
+                Ok(ss) => {
+                    
+                    let json_string: String = json::to_string(&LogoutResponse {
+                        username: logout_info.username.to_owned(),
+                    }).unwrap();
+                    
+                    status::Custom(Status::Ok, String::from(json_string))
+                }
+                Err(e) => {
+                    let err_status = Status::new(500);
+                    error!("account_logout error {:?}", e);
+                    status::Custom(err_status, String::from("sorry"))
+                }
+            }
+
+        }
+        Err(e) => {
+            let err_status = Status::new(500);
+            error!("account_logout error {:?}", e);
+
+            status::Custom(err_status, String::from("sorry"))
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -359,6 +408,7 @@ async fn main() -> Result<(), AppError> {
             .attach(PostgresDB::init())
             .mount("/", routes![index,
                                 login,
+                                logout,
                                 register,
                                 get_characters
             ])
