@@ -8,6 +8,7 @@
 #include <map>
 
 #include "option.h"
+#include "utils.cpp"
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
@@ -34,24 +35,9 @@ public:
     std::cout << dateString << "[DEBUG]: " << errStr << std::endl;
   }
   
-};                          
-
-
-template<class T>
-std::string format(std::string fmtStr, T test) {
-  /* char buff[100];
-  snprintf(buff, sizeof(buff), fmtStr.c_str(), test);
-  std::string buffAsStdStr = buff;
-  return buffAsStdStr; */
-
-  std::ostringstream stringStream;
-  stringStream << fmtStr;
-  stringStream << " " << test;
-  return stringStream.str();
-}
+};                         
 
 DebugLogger lo = DebugLogger();
-
 
 #define PORT    8001
 #define MAXLINE 1024
@@ -72,9 +58,6 @@ struct ServerResponse {
 
 #include <string_view>
 
-static bool endsWith(std::string_view str, std::string_view suffix) {
-  return str.size() >= suffix.size() && 0 == str.compare(str.size()-suffix.size(), suffix.size(), suffix);
-}
 ServerResponse process_message(std::map<std::string, std::string> SERVER_URLS,
                                HttpHandler* httpHandler,
                                json message) {
@@ -123,11 +106,42 @@ ServerResponse process_message(std::map<std::string, std::string> SERVER_URLS,
     auto jsonParseResult = parse_json(responseBody);
 
     if (std::get<bool>(jsonParseResult)) {
+      
       auto js = std::get<json>(jsonParseResult);
 
       response.status = 200;
       response.body = js.dump();
+      
     }
+  } else if (message["type"] == "getCharacters") {
+    lo.info("got getCharacters request");
+    lo.info(message["username"]);
+
+    auto getCharactersUrl = SERVER_URLS["getCharactersUrl"];
+
+    bool formattedUrl = replace(getCharactersUrl, "<username>", message["username"]);
+
+    if (formattedUrl) {
+      
+      auto getCharactersResponse = httpHandler->post_request(getCharactersUrl, message.dump());
+      
+      const char* responseBody = getCharactersResponse.body.c_str();
+      
+      auto jsonParseResult = parse_json(responseBody);
+      
+      if (std::get<bool>(jsonParseResult)) {
+        auto js = std::get<json>(jsonParseResult);
+        
+        response.status = 200;
+        response.body = js.dump();
+      }
+      
+    } else {
+      lo.error("could not format url when getting characters");
+      response.status = 0;
+      response.body = "error";
+    }
+
   } else {
     
     response.status = 0;
@@ -140,7 +154,6 @@ ServerResponse process_message(std::map<std::string, std::string> SERVER_URLS,
 
 
 using namespace std::chrono_literals;
-
  
 
 int main(int argc, char** argv) {
@@ -170,7 +183,7 @@ int main(int argc, char** argv) {
   const std::map<std::string, std::string> SERVER_URLS = {
     { "loginUrl", std::string(gameServiceURL) + "account/login" },
     { "logoutUrl", std::string(gameServiceURL) + "account/logout" },
-    { "y", std::string(gameServiceURL) + "account/login" },
+    { "getCharactersUrl", std::string(gameServiceURL) + "account/<username>/characters" },
   };
   
   int sockfd;

@@ -14,7 +14,7 @@ LIBRARY_PATHS := -Llib
 # COMPILER_FLAGS := -w -Wl,-subsystem,windows
 COMPILER_FLAGS := -w 
 
-LINKER_FLAGS := -lmingw32 -lSDL2main -lSDL2 -lws2_32 -lSDL2_ttf
+LINKER_FLAGS := -lmingw32 -lSDL2main -lSDL2 -lws2_32 -lSDL2_ttf -lopengl32
 
 init:
 	mkdir -p ./target/$(BUILD_TYPE)

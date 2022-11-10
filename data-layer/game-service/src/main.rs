@@ -219,7 +219,8 @@ async fn logout(mut db: Connection<PostgresDB>,
 
 #[derive(Deserialize, Debug)]
 struct Token {
-    token: String
+    accessToken: String,
+    username: String
 }
 
 use uuid::Uuid;
@@ -233,9 +234,9 @@ struct CharactersResponse {
 async fn get_characters(mut db: Connection<PostgresDB>,
                   username: String,
                   token: Json<Token>) -> status::Custom<String> {
-    info!("username: {:?} with token {:?} get_characters", username, token.token);
+    info!("username: {:?} with token {:?} get_characters", username, token.accessToken);
 
-    let username_result = db.query(db::queries::GET_USER_TOKEN, &[&token.token]).await;
+    let username_result = db.query(db::queries::GET_USER_TOKEN, &[&token.accessToken]).await;
 
     match username_result {
         Ok(db_rows) => {

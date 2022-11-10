@@ -130,3 +130,50 @@ ServerResponse sendLogoutRequest(int s,
   return response;
     
 }
+
+ServerResponse sendGetCharactersRequest(int s,
+                                        std::string username,
+                                        std::string accessToken) {
+
+  std::cout << "get characters request username " << username << std::endl;
+
+  struct sockaddr_in si_other;
+  int slen = sizeof(si_other);
+  memset( (char*) &si_other, 0, sizeof(si_other));
+
+  si_other.sin_family = AF_INET;
+  si_other.sin_port = htons(PORT);
+  si_other.sin_addr.S_un.S_addr = inet_addr(SERVER);
+
+  json getCharactersMessageJson;
+  getCharactersMessageJson["type"] = "getCharacters";
+  getCharactersMessageJson["username"] = username;
+  getCharactersMessageJson["accessToken"] = accessToken;
+
+  auto messageStr = getCharactersMessageJson.dump();
+
+  int result = sendUdpPacket(s,
+                             (struct sockaddr *) &si_other,
+                             messageStr.c_str(),
+                             slen);
+
+  if (result > 0) {
+    ServerResponse response {0, "error"};
+    return response;
+  }
+
+  std::string packet = receiveUdpPacket(s, (struct sockaddr *) &si_other,
+                                        &slen);
+
+  std::cout << "received packet: " << packet << std::endl;
+
+  json receivedParsed = json::parse(packet);
+
+  std::cout << "received logout result: " << receivedParsed["status"] << std::endl;
+
+  auto response = ServerResponse { (int) receivedParsed["status"],
+                                   receivedParsed["body"] };
+
+  return response;
+ 
+}
