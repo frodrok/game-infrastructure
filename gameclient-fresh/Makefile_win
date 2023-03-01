@@ -1,0 +1,28 @@
+
+CC := g++
+
+BUILD_TYPE := debug
+
+SOURCE_FILES := src/cpp/main.cpp
+
+BINARY_NAME := client
+
+INCLUDE_PATHS := include
+
+LIBRARY_PATHS := -Llib
+
+# COMPILER_FLAGS := -w -Wl,-subsystem,windows
+COMPILER_FLAGS := -w 
+
+LINKER_FLAGS := -lmingw32 -lSDL2main -lSDL2 -lws2_32 -lSDL2_ttf -lglfw3 -lgdi32 -lopengl32
+
+init:
+	mkdir -p ./target/$(BUILD_TYPE)
+
+build:
+	$(CC) -I$(INCLUDE_PATHS) $(LIBRARY_PATHS) $(COMPILER_FLAGS) $(SOURCE_FILES) -o target/$(BUILD_TYPE)/$(BINARY_NAME) $(LINKER_FLAGS)
+
+run:
+	./target/$(BUILD_TYPE)/$(BINARY_NAME)
+
+all: init build run
